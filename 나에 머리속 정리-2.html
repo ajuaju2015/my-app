@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>머릿속</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="머릿속">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0c0c0b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #6c7cf5;
+  --card:     #ffffff;
+  --s1:       #f7f8fc;
+  --s2:       #eef0f8;
+  --border:   #ecedf3;
+  --border2:  #d9dbe7;
+  --text:     #2c2e3e;
+  --text2:    #6b6e80;
+  --text3:    #a8aab8;
+  --accent:   #6c7cf5;
+  --accent-d: #5563e8;
+  --high:     #ef4f6b;
+  --safe-b:   env(safe-area-inset-bottom, 0px);
+  --safe-t:   env(safe-area-inset-top, 0px);
+}
+html, body {
+  height: 100%;
+  background: linear-gradient(135deg, #6c7cf5 0%, #8b5cf6 100%);
+  font-family: 'Noto Sans KR', sans-serif;
+  color: var(--text); overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+#root { height: 100%; display: flex; align-items: center; justify-content: center; }
+.phone-frame {
+  width: 100%; height: 100%;
+  background: var(--card);
+  overflow: hidden;
+}
+@media (min-width: 480px) {
+  #root { padding: 28px; }
+  .phone-frame {
+    width: 390px; height: min(844px, calc(100vh - 56px));
+    border-radius: 36px;
+    box-shadow: 0 30px 80px -20px rgba(60, 30, 150, 0.5), 0 0 0 10px #1a1a2e, 0 0 0 11px #2a2a40;
+  }
+}
+button { -webkit-tap-highlight-color: transparent; }
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+@keyframes fadeUp  { from{opacity:0;transform:translate(-50%,8px)} to{opacity:1;transform:translate(-50%,0)} }
+@keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+@keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes spin    { to{transform:rotate(360deg)} }
+@keyframes pulse   { 0%,100%{opacity:0.4} 50%{opacity:1} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const load = (k,d) => { try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d} };
+const save = (k,v) => { try{localStorage.setItem(k,JSON.stringify(v))}catch{} };
+
+// ── Hue map per space ──────────────────────────────────────────────────────────
+const SPACE_HUES = {
+  '에이던스 영어': 220, '테스 영어': 160, '프라임리더스 영어': 45,
+  'PK 독학재수학원': 10, '독재자입시학원': 300, '리틀뮤직랩': 180,
+  '하우스콘서트': 330, '편월재 캠핑장': 100,
+  '아주': 55, '개인': 260, '일': 140, '기타': 0,
+};
+const CAT_HUES   = [220,160,45,10,270,190,320,90,240,70];
+let _catHueMap = {};
+function getSpaceHue(name) { return SPACE_HUES[name] ?? (name.charCodeAt(0) % 12 * 30); }
+function getCatHue(space, cat) {
+  const k = space+'|'+cat;
+  if (_catHueMap[k] === undefined) {
+    const used = Object.keys(_catHueMap).filter(x=>x.startsWith(space+'|')).length;
+    _catHueMap[k] = CAT_HUES[used % CAT_HUES.length];
+  }
+  return _catHueMap[k];
+}
+
+// ── Color builders ─────────────────────────────────────────────────────────────
+function spaceColor(name) {
+  const h = getSpaceHue(name);
+  return {
+    dot:    `oklch(62% 0.16 ${h})`,
+    label:  `oklch(50% 0.18 ${h})`,
+    bg:     `oklch(96% 0.03 ${h})`,
+    border: `oklch(88% 0.05 ${h})`,
+    glow:   `oklch(70% 0.18 ${h} / 0.2)`,
+  };
+}
+function catColor(space, cat) {
+  const h = getCatHue(space, cat);
+  return {
+    dot:    `oklch(60% 0.14 ${h})`,
+    label:  `oklch(48% 0.16 ${h})`,
+    bg:     `oklch(96% 0.03 ${h})`,
+    border: `oklch(88% 0.05 ${h})`,
+  };
+}
+
+// ── AI ─────────────────────────────────────────────────────────────────────────
+// ── AI ─────────────────────────────────────────────────────────────────────────
+const USER_CONTEXT = `
+사용자 정보:
+- 이름: 안두현 (브랜드 마케터)
+- "포스팅" = 블로그 포스팅
+- 아들 이름: 아주야 ("아주ㅇㅇ" 형태면 아들 관련)
+
+관리하는 브랜드/학원 (각각 독립 공간으로 분류):
+- 에이던스 영어
+- 테스 영어  
+- 프라임리더스 영어
+- PK 독학재수학원 (= pk, 피케이)
+- 독재자입시학원 (= 독재자)
+- 리틀뮤직랩
+- 하우스콘서트
+- 편월재 캠핑장
+
+분류 규칙 (★ 매우 중요):
+- **앞에 브랜드명이 붙으면 그 브랜드의 일임** (마케팅 작업 = 일 관련)
+- 입력에 학원/브랜드 이름이 **포함되어 있으면** 반드시 그 브랜드를 space로 분류
+- 예: "에이던스 포스팅" → space:"에이던스 영어", category:"포스팅"
+- 예: "잉글리쉬 식스 포스팅" → space:"잉글리쉬 식스" (모르는 브랜드도 앞 단어가 브랜드면 그대로)
+- 예: "테스 영어 플레이스 작업" → space:"테스 영어", category:"플레이스"
+- 예: "프라임리더스 PPT 만들기" → space:"프라임리더스 영어", category:"PPT"
+- 예: "PK 학생 상담" → space:"PK 독학재수학원", category:"상담"
+- 예: "독재자 입시 마케팅" → space:"독재자입시학원", category:"마케팅"
+- 예: "리틀뮤직랩 레슨 정리" → space:"리틀뮤직랩", category:"레슨"
+- 예: "하우스콘서트 공연 준비" → space:"하우스콘서트", category:"공연"
+- 예: "편월재 캠핑 예약" → space:"편월재 캠핑장", category:"운영"
+- 학원/브랜드 절대 섞지 말 것 (각각 독립)
+- "아주" 단어가 들어가면 → space:"아주" (아들 관련)
+- **브랜드명 없이 그냥 적은 글 (예: "마인드맵 만들기", "운동하기", "책 읽기") → space:"개인"** (개인적인 일)
+- 가족, 일상, 건강, 취미 등 → space:"개인"
+- 카테고리 작명: 작업 종류 (포스팅, 플레이스, 마케팅, 운영, 레슨, 상담, PPT, 미팅, 정산, 디자인 등)`;
+
+async function classify(text, existingSpaces, existingCats) {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const dd = String(today.getDate()).padStart(2,'0');
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+  const prompt = `${USER_CONTEXT}
+오늘 날짜: ${todayStr} (${['일','월','화','수','목','금','토'][today.getDay()]}요일)
+기존 공간: ${existingSpaces.join(', ')||'없음'}
+기존 카테고리: ${Object.entries(existingCats).map(([s,cs])=>s+': '+cs.join(', ')).join(' | ')||'없음'}
+입력: "${text}"
+
+JSON만 출력:
+- space: 위 규칙에 따른 공간명
+- category: 세부분류 (2-6글자)
+- priority: 높음|중간|낮음
+- text: 간결하게 정리 (날짜 표현은 제거)
+- date: 입력에 날짜/시점 표현이 있으면 YYYY-MM-DD 형식으로 (예: "내일"=오늘+1일, "다음주 월요일", "5월 10일", "5/10", "이번 주말" 등). 없으면 null
+
+{"space":"...","category":"...","priority":"...","text":"...","date":"YYYY-MM-DD"|null}`;
+  try {
+    const r = await window.claude.complete(prompt);
+    const m = r.match(/\{[\s\S]*?\}/);
+    if (m) return JSON.parse(m[0]);
+  } catch {}
+  return { space:'기타', category:'기타', priority:'중간', text, date:null };
+}
+
+// ── SVG Icons ──────────────────────────────────────────────────────────────────
+const Icon = ({ n, s=18, c='currentColor' }) => {
+  const d = {
+    send:  <svg width={s} height={s} viewBox="0 0 18 18" fill="none"><path d="M15 3L9 9M15 3L11.5 15.5 9 9 2.5 6.5 15 3z" stroke={c} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+    chat:  <svg width={s} height={s} viewBox="0 0 18 18" fill="none"><path d="M3 3h12c.6 0 1 .4 1 1v8c0 .6-.4 1-1 1H6l-3 2.5V4c0-.6.4-1 1-1z" stroke={c} strokeWidth="1.5" strokeLinejoin="round"/><path d="M6 8h6M6 11h4" stroke={c} strokeWidth="1.4" strokeLinecap="round"/></svg>,
+    grid:  <svg width={s} height={s} viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" stroke={c} strokeWidth="1.5"/><rect x="10" y="2" width="6" height="6" rx="1.5" stroke={c} strokeWidth="1.5"/><rect x="2" y="10" width="6" height="6" rx="1.5" stroke={c} strokeWidth="1.5"/><rect x="10" y="10" width="6" height="6" rx="1.5" stroke={c} strokeWidth="1.5"/></svg>,
+    map:   <svg width={s} height={s} viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="2" stroke={c} strokeWidth="1.6"/><path d="M9 2v3M9 13v3M2 9h3M13 9h3" stroke={c} strokeWidth="1.6" strokeLinecap="round"/><path d="M4.5 4.5l2 2M11.5 11.5l2 2M4.5 13.5l2-2M11.5 6.5l2-2" stroke={c} strokeWidth="1.2" strokeLinecap="round"/></svg>,
+    check: <svg width={s} height={s} viewBox="0 0 18 18" fill="none"><path d="M3.5 9l4 4L14.5 5" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+    trash: <svg width={s} height={s} viewBox="0 0 18 18" fill="none"><path d="M3 6h12M7 6V4.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V6M6 6l.7 8h4.6l.7-8" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+    chev:  <svg width={s} height={s} viewBox="0 0 18 18" fill="none"><path d="M4.5 7l4.5 4.5L13.5 7" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+    archive:<svg width={s} height={s} viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="14" height="4" rx="1.5" stroke={c} strokeWidth="1.5"/><path d="M3 6v8.5c0 .8.7 1.5 1.5 1.5h9c.8 0 1.5-.7 1.5-1.5V6" stroke={c} strokeWidth="1.5"/><path d="M7 10.5h4" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>,
+    cal:   <svg width={s} height={s} viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="13" rx="2" stroke={c} strokeWidth="1.5"/><path d="M2 7h14" stroke={c} strokeWidth="1.5"/><path d="M6 2v2M12 2v2" stroke={c} strokeWidth="1.8" strokeLinecap="round"/><circle cx="6" cy="11" r="1" fill={c}/><circle cx="9" cy="11" r="1" fill={c}/><circle cx="12" cy="11" r="1" fill={c}/></svg>,
+  };
+  return d[n] || null;
+};
+
+// ── Spinner ────────────────────────────────────────────────────────────────────
+const Spin = ({ s=16 }) => (
+  <div style={{width:s,height:s,border:`1.5px solid #333`,borderTopColor:'#888',borderRadius:'50%',animation:'spin 0.7s linear infinite',flexShrink:0}}/>
+);
+
+// ── Priority chip ──────────────────────────────────────────────────────────────
+const PChip = ({ p }) => {
+  const map = { '높음':['#ffe5ea','var(--high)'], '중간':['#fef3c7','#b45309'], '낮음':['var(--s2)','var(--text3)'] };
+  const [bg, col] = map[p] || map['낮음'];
+  return <span style={{fontSize:10,fontWeight:500,padding:'2px 8px',borderRadius:4,background:bg,color:col,letterSpacing:0.2}}>{p}</span>;
+};
+
+// ── Input Screen ───────────────────────────────────────────────────────────────
+const InputScreen = ({ onAdd, loading }) => {
+  const [text, setText] = useState('');
+  const ta = useRef(null);
+  const composing = useRef(false);
+  useEffect(()=>{ setTimeout(()=>ta.current?.focus(),150); },[]);
+
+  const submit = () => {
+    if (!text.trim()||loading) return;
+    onAdd(text.trim()); setText('');
+  };
+
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',padding:'0 28px',paddingBottom:'18vh'}}>
+      <textarea
+        ref={ta}
+        value={text}
+        onChange={e=>setText(e.target.value)}
+        onCompositionStart={()=>{ composing.current=true; }}
+        onCompositionEnd={()=>{ composing.current=false; }}
+        onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey) e.preventDefault(); }}
+        onKeyUp={e=>{ if(e.key==='Enter'&&!e.shiftKey&&!composing.current) submit(); }}
+        placeholder="떠오르는거"
+        rows={3}
+        style={{
+          display:'block', width:'100%',
+          background:'transparent', border:'none', outline:'none',
+          padding:0, textAlign:'center',
+          fontSize:26, fontFamily:'inherit', lineHeight:1.5, fontWeight:400,
+          color:'var(--text)', resize:'none', caretColor:'var(--accent)',
+        }}
+      />
+      <div style={{textAlign:'center',marginTop:24,fontSize:12,color:'var(--text3)',letterSpacing:0.3,minHeight:18}}>
+        {loading
+          ? <span style={{display:'inline-flex',alignItems:'center',gap:7}}><Spin s={12}/> 분류 중</span>
+          : text.trim() ? '엔터로 추가하기' : ''}
+      </div>
+    </div>
+  );
+};
+
+// ── EditableItem: tap pencil to edit ──────────────────────────────────────────
+const EditableItem = ({ item, onCheck, onDelete, onEdit, dotColor, showCat }) => {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal]         = useState(item.text);
+  const inputRef              = useRef(null);
+  const composing             = useRef(false);
+
+  useEffect(() => { if (editing) { inputRef.current?.focus(); inputRef.current?.select?.(); } }, [editing]);
+  useEffect(() => { setVal(item.text); }, [item.text]);
+
+  const commit = () => {
+    setEditing(false);
+    if (val.trim() && val.trim() !== item.text) onEdit(item.id, val.trim());
+    else setVal(item.text);
+  };
+
+  return (
+    <div style={{
+      display:'flex', gap:14, alignItems:'center',
+      padding:'14px 0', borderBottom:'1px solid var(--border)',
+    }}>
+      <button onClick={()=>onCheck(item.id)} aria-label="완료" style={{
+        flexShrink:0, width:22, height:22, borderRadius:'50%',
+        border:`1.5px solid ${dotColor}`, background:'transparent', cursor:'pointer',
+        padding:0,
+      }}/>
+      <div style={{flex:1, minWidth:0}}>
+        {editing ? (
+          <textarea
+            ref={inputRef}
+            value={val}
+            onChange={e=>setVal(e.target.value)}
+            onCompositionStart={()=>{ composing.current=true; }}
+            onCompositionEnd={()=>{ composing.current=false; }}
+            onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey) e.preventDefault(); }}
+            onKeyUp={e=>{ if(e.key==='Enter'&&!e.shiftKey&&!composing.current) commit(); if(e.key==='Escape'){setVal(item.text);setEditing(false);} }}
+            onBlur={commit}
+            rows={1}
+            style={{
+              width:'100%', background:'var(--s1)', border:`1px solid ${dotColor}`,
+              borderRadius:6, padding:'6px 10px', fontSize:15, fontFamily:'inherit',
+              lineHeight:1.5, color:'var(--text)', resize:'none', outline:'none',
+              caretColor:'var(--accent)',
+            }}
+          />
+        ) : (
+          <div onClick={()=>setEditing(true)} style={{fontSize:15.5, lineHeight:1.45, color:'var(--text)', cursor:'text', wordBreak:'break-word'}}>{item.text}</div>
+        )}
+        {!editing && showCat && (
+          <div style={{fontSize:11, color:'var(--text3)', marginTop:4, letterSpacing:0.2, display:'flex', gap:8, alignItems:'center'}}>
+            <span>{item.category}</span>
+            {item.dueDate && (
+              <span style={{color:'var(--accent)',fontWeight:500}}>· {item.dueDate.slice(5).replace('-','/')}</span>
+            )}
+          </div>
+        )}
+      </div>
+      {!editing && item.priority==='높음' && (
+        <span style={{flexShrink:0, fontSize:11, color:'var(--high)'}}>●</span>
+      )}
+      <button onClick={()=>onDelete(item.id)} style={{flexShrink:0, background:'none', border:'none', cursor:'pointer', padding:4, opacity:0.3}} aria-label="삭제">
+        <Icon n="trash" s={13} c="var(--text2)"/>
+      </button>
+    </div>
+  );
+};
+
+// ── List Screen ────────────────────────────────────────────────────────────────
+const ListScreen = ({ items, onCheck, onDelete, onClearDone, onEdit }) => {
+  const [oSpace, setOSpace] = useState({});
+  const [oCat,   setOCat]   = useState({});
+  const active = items.filter(i=>!i.done);
+  const done   = items.filter(i=>i.done);
+
+  const tree = {};
+  active.forEach(item=>{
+    if(!tree[item.space]) tree[item.space]=[];
+    tree[item.space].push(item);
+  });
+
+  const pScore = {'높음':0,'중간':1,'낮음':2};
+  const spaces = Object.keys(tree).sort();
+
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('ko-KR',{weekday:'long',month:'long',day:'numeric'});
+
+  if (!active.length) return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8,color:'var(--text3)',padding:'0 20px'}}>
+      <div style={{fontSize:14,letterSpacing:0.3}}>아직 아무것도 없어요</div>
+      <div style={{fontSize:12,opacity:0.6}}>입력 탭에서 적어보세요</div>
+    </div>
+  );
+
+  return (
+    <div style={{flex:1,overflowY:'auto',padding:'0 22px 28px'}}>
+      {/* Date header */}
+      <div style={{paddingBottom:18,borderBottom:'1px solid var(--border)',marginBottom:22}}>
+        <div style={{fontSize:22,fontWeight:700,color:'var(--text)',letterSpacing:-0.5,lineHeight:1.2}}>{dateStr}</div>
+        <div style={{fontSize:13,color:'var(--accent)',fontWeight:600,marginTop:5}}>{active.length}개 할 일</div>
+      </div>
+
+      {/* Spaces as collapsible sections */}
+      {spaces.map(sp=>{
+        const sc = spaceColor(sp);
+        const list = [...tree[sp]].sort((a,b)=>(pScore[a.priority]??1)-(pScore[b.priority]??1));
+        const isOpen = oSpace[sp] !== false;
+        return (
+          <div key={sp} style={{marginBottom:24}}>
+            <button
+              onClick={()=>setOSpace(p=>({...p,[sp]:!isOpen}))}
+              style={{
+                width:'100%',display:'flex',alignItems:'center',gap:10,
+                padding:'8px 0',background:'none',border:'none',cursor:'pointer',
+                fontFamily:'inherit',
+              }}
+            >
+              <span style={{width:7,height:7,borderRadius:'50%',background:sc.dot}}/>
+              <span style={{fontSize:12,fontWeight:700,color:sc.label,letterSpacing:1.5,textTransform:'uppercase',flex:1,textAlign:'left'}}>{sp}</span>
+              <span style={{fontSize:11,color:'var(--text3)'}}>{list.length}</span>
+              <span style={{color:'var(--text3)',transform:`rotate(${isOpen?180:0}deg)`,transition:'transform 0.2s',display:'flex'}}>
+                <Icon n="chev" s={12} c="var(--text3)"/>
+              </span>
+            </button>
+            {isOpen && list.map(item=>(
+              <EditableItem
+                key={item.id} item={item}
+                onCheck={onCheck} onDelete={onDelete} onEdit={onEdit}
+                dotColor={sc.dot}
+                showCat={true}
+              />
+            ))}
+          </div>
+        );
+      })}
+
+      {/* Done */}
+      {done.length>0 && (
+        <div style={{marginTop:24,paddingTop:18,borderTop:'1px solid var(--border)'}}>
+          <div style={{display:'flex',alignItems:'center',marginBottom:10}}>
+            <div style={{fontSize:11,color:'var(--text3)',letterSpacing:1.5,textTransform:'uppercase',flex:1}}>완료 {done.length}</div>
+            <button onClick={onClearDone} style={{fontSize:11,color:'var(--text3)',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',textDecoration:'underline'}}>전체 삭제</button>
+          </div>
+          {done.slice(-10).reverse().map(item=>(
+            <div key={item.id} style={{display:'flex',gap:14,alignItems:'center',padding:'10px 0',borderBottom:'1px solid var(--border)',opacity:0.45}}>
+              <span style={{flexShrink:0,width:22,height:22,borderRadius:'50%',background:'var(--border2)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Icon n="check" s={11} c="var(--text)"/>
+              </span>
+              <span style={{fontSize:14,color:'var(--text3)',textDecoration:'line-through',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.text}</span>
+              <button onClick={()=>onDelete(item.id)} style={{background:'none',border:'none',cursor:'pointer',padding:4,opacity:0.6}}>
+                <Icon n="trash" s={12} c="var(--text3)"/>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── MindMap Screen ─────────────────────────────────────────────────────────────
+const WORK_BRANDS = ['에이던스 영어','테스 영어','프라임리더스 영어','PK 독학재수학원','독재자입시학원','리틀뮤직랩','하우스콘서트','편월재 캠핑장'];
+const MapScreen = ({ items, onCheck, onDelete }) => {
+  const active = items.filter(i=>!i.done);
+  // 개인/아주는 그대로, 그 외는 모두 "일" 그룹 (알려진 브랜드 + 새 브랜드 포함)
+  const groupOf = sp => (sp==='개인'||sp==='아주') ? sp : '일';
+  const tree = {};
+  active.forEach(it=>{ const r=groupOf(it.space); (tree[r]=tree[r]||{}); (tree[r][it.space]=tree[r][it.space]||[]).push(it); });
+  const roots = Object.keys(tree);
+  const ref = useRef(null);
+  const [sz, setSz] = useState({w:360,h:480});
+  const [selected, setSelected] = useState(null); // {sp, cat} or null
+
+  useEffect(()=>{
+    if(!ref.current) return;
+    const ro = new ResizeObserver(([e])=>setSz({w:e.contentRect.width,h:e.contentRect.height}));
+    ro.observe(ref.current);
+    return ()=>ro.disconnect();
+  },[]);
+
+  if (!roots.length) return (
+    <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text3)',fontSize:13}}>
+      항목을 추가하면 나타나요
+    </div>
+  );
+
+  const {w,h}=sz, cx=w/2, cy=h/2;
+  const r1 = Math.min(w,h)*0.22;
+  const r2 = Math.min(w,h)*0.40;
+
+  const rootNodes = roots.map((root,i)=>{
+    const ang = (i/roots.length)*Math.PI*2 - Math.PI/2;
+    return {root, x:cx+Math.cos(ang)*r1, y:cy+Math.sin(ang)*r1, ang, sc:spaceColor(root)};
+  });
+  const childNodes = [];
+  rootNodes.forEach(rn=>{
+    const kids = Object.keys(tree[rn.root]);
+    kids.forEach((sp,j)=>{
+      const spread = Math.PI * 0.6;
+      const ang = kids.length===1 ? rn.ang : rn.ang - spread/2 + spread*(j/(kids.length-1));
+      childNodes.push({ sp, root:rn.root, x: cx+Math.cos(ang)*r2, y: cy+Math.sin(ang)*r2, rx:rn.x, ry:rn.y, sc:spaceColor(sp) });
+    });
+  });
+
+  // Detail panel items
+  const panelItems = selected
+    ? (selected.cat
+        ? active.filter(i=>i.space===selected.sp && i.category===selected.cat)
+        : active.filter(i=>i.space===selected.sp))
+    : [];
+  const pScore = {'높음':0,'중간':1,'낮음':2};
+  const panelSorted = [...panelItems].sort((a,b)=>(pScore[a.priority]??1)-(pScore[b.priority]??1));
+
+  return (
+    <div ref={ref} style={{flex:1,position:'relative',overflow:'hidden'}}>
+      <svg style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+        {rootNodes.map(rn=>(
+          <line key={'r-'+rn.root} x1={cx} y1={cy} x2={rn.x} y2={rn.y} stroke={rn.sc.dot} strokeOpacity="0.5" strokeWidth="1.4"/>
+        ))}
+        {childNodes.map((cn,i)=>(
+          <line key={'c-'+i} x1={cn.rx} y1={cn.ry} x2={cn.x} y2={cn.y} stroke={cn.sc.dot} strokeOpacity="0.4" strokeWidth="1"/>
+        ))}
+      </svg>
+
+      {/* Center */}
+      <div style={{
+        position:'absolute',left:cx,top:cy,transform:'translate(-50%,-50%)',
+        width:50,height:50,borderRadius:12,
+        background:'var(--s2)',border:'1px solid var(--border2)',
+        display:'flex',alignItems:'center',justifyContent:'center',zIndex:2,
+      }}>
+        <span style={{fontSize:10,fontWeight:700,color:'var(--text2)',letterSpacing:0.5}}>나</span>
+      </div>
+
+      {rootNodes.map(rn=>{
+        const cnt = Object.values(tree[rn.root]).reduce((s,a)=>s+a.length,0);
+        return (
+          <div key={rn.root} style={{position:'absolute',left:rn.x,top:rn.y,transform:'translate(-50%,-50%)',background:rn.sc.bg,border:`1px solid ${rn.sc.border}`,borderRadius:11,padding:'7px 12px',zIndex:2,boxShadow:`0 0 16px ${rn.sc.glow}`}}>
+            <div style={{fontSize:12,fontWeight:700,color:rn.sc.label}}>{rn.root}</div>
+            <div style={{fontSize:9,color:rn.sc.dot,marginTop:1}}>{cnt}</div>
+          </div>
+        );
+      })}
+      {childNodes.map((cn,idx)=>{
+        const cnt = tree[cn.root][cn.sp].length;
+        const isSel = selected?.sp===cn.sp;
+        return (
+          <div key={'cn-'+idx} onClick={()=>setSelected(isSel?null:{sp:cn.sp,cat:null})}
+            style={{position:'absolute',left:cn.x,top:cn.y,transform:'translate(-50%,-50%)',background:cn.sc.bg,border:`1px solid ${isSel?cn.sc.dot:cn.sc.border}`,borderRadius:10,padding:'6px 10px',zIndex:2,cursor:'pointer',boxShadow:isSel?`0 0 16px ${cn.sc.glow}`:'none',maxWidth:120}}>
+            <div style={{fontSize:10.5,fontWeight:600,color:cn.sc.label,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{cn.sp}</div>
+            <div style={{fontSize:9,color:cn.sc.dot,marginTop:1}}>{cnt}</div>
+          </div>
+        );
+      })}
+
+      {/* Detail panel */}
+      {selected && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={()=>setSelected(null)}
+            style={{position:'absolute',inset:0,zIndex:3,background:'rgba(0,0,0,0.5)',animation:'fadeIn 0.15s'}}
+          />
+          {/* Panel */}
+          <div style={{
+            position:'absolute',bottom:0,left:0,right:0,zIndex:4,
+            background:'var(--s1)',borderTop:'1px solid var(--border2)',
+            borderRadius:'16px 16px 0 0',
+            maxHeight:'60%',display:'flex',flexDirection:'column',
+            animation:'slideUp 0.22s ease',
+          }}>
+            {/* Panel header */}
+            {(() => {
+              const sc = spaceColor(selected.sp);
+              const cc = selected.cat ? catColor(selected.sp, selected.cat) : null;
+              return (
+                <div style={{
+                  padding:'14px 18px 12px',
+                  borderBottom:'1px solid var(--border)',
+                  display:'flex',alignItems:'center',gap:10,flexShrink:0,
+                }}>
+                  <span style={{width:8,height:8,borderRadius:'50%',background:cc?cc.dot:sc.dot,flexShrink:0}}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,color:'var(--text3)'}}>{selected.sp}</div>
+                    <div style={{fontSize:15,fontWeight:700,color:cc?cc.label:sc.label,letterSpacing:-0.3}}>
+                      {selected.cat || '전체'}
+                    </div>
+                  </div>
+                  <span style={{fontSize:11,color:cc?cc.dot:sc.dot,background:'rgba(255,255,255,0.06)',padding:'2px 9px',borderRadius:4}}>
+                    {panelSorted.length}개
+                  </span>
+                  <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',cursor:'pointer',color:'var(--text3)',padding:4,fontSize:18,lineHeight:1}}>×</button>
+                </div>
+              );
+            })()}
+            {/* Items */}
+            <div style={{overflowY:'auto',padding:'10px 16px 16px',flex:1}}>
+              {panelSorted.map((item,i)=>{
+                const cc = catColor(item.space, item.category);
+                return (
+                  <div key={item.id} style={{
+                    display:'flex',gap:10,alignItems:'flex-start',
+                    padding:'9px 12px',borderRadius:9,marginBottom:4,
+                    background:'var(--s2)',border:'1px solid var(--border)',
+                    animation:`slideUp ${i*0.04}s ease`,
+                  }}>
+                    <button onClick={()=>{ onCheck(item.id); if(panelSorted.length<=1) setSelected(null); }} style={{
+                      flexShrink:0,width:18,height:18,borderRadius:5,marginTop:1,
+                      border:`1.2px solid ${cc.dot}`,background:'transparent',cursor:'pointer',
+                    }}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13.5,lineHeight:1.6,wordBreak:'break-word',color:'var(--text)'}}>{item.text}</div>
+                      <div style={{display:'flex',gap:6,marginTop:4,alignItems:'center'}}>
+                        <PChip p={item.priority}/>
+                        {!selected.cat && <span style={{fontSize:10,color:cc.label,background:cc.bg,padding:'1px 6px',borderRadius:4}}>{item.category}</span>}
+                        <span style={{fontSize:10,color:'var(--text3)'}}>
+                          {new Date(item.createdAt).toLocaleDateString('ko-KR',{month:'short',day:'numeric'})}
+                        </span>
+                      </div>
+                    </div>
+                    <button onClick={()=>{ onDelete(item.id); if(panelSorted.length<=1) setSelected(null); }} style={{flexShrink:0,background:'none',border:'none',cursor:'pointer',padding:3,opacity:0.4}}>
+                      <Icon n="trash" s={14} c="var(--text2)"/>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ── Chat Screen ────────────────────────────────────────────────────────────────
+const ChatScreen = ({ onAddItems, allItems, onCommand, chatLog, onSaveChatLog }) => {
+  const [view, setView]     = useState('chat'); // 'chat' | 'history' | 'detail'
+  const [msgs, setMsgs]     = useState([{ role:'ai', text:'안녕하세요! 머릿속에 있는 생각을 자유롭게 얘기해봐요. 정리가 되면 할 일로 만들어드릴게요.' }]);
+  const [detailLog, setDetailLog] = useState(null);
+  const [input, setInput]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [extracted, setExtracted] = useState(null); // [{text, space, category, priority}]
+  const bottomRef = useRef(null);
+  const composing = useRef(false);
+  const ta = useRef(null);
+
+  useEffect(()=>{
+    bottomRef.current?.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }, [msgs, extracted]);
+
+  const sendMsg = async () => {
+    if (!input.trim() || loading) return;
+    const userText = input.trim();
+    setInput('');
+    const newMsgs = [...msgs, { role:'user', text: userText }];
+    setMsgs(newMsgs);
+    setLoading(true);
+
+    // Check if it's a command about existing items
+    const isCommand = /삭제|지워|없애|완료|체크|중요|우선순위|높음|낮음|중간|바꿔|변경|보여/.test(userText);
+
+    if (isCommand && allItems.length > 0) {
+      const itemList = allItems.filter(i=>!i.done).map((it,i)=>`${i}. [${it.space}/${it.category}] ${it.text} (우선순위:${it.priority})`).join('\n');
+      const prompt = `${USER_CONTEXT}
+사용자 명령: "${userText}"
+현재 할 일 목록:
+${itemList}
+
+명령을 분석해서 JSON으로 응답하세요. action은 다음 중 하나:
+- delete: 특정 항목 삭제 (ids 배열)
+- complete: 완료 처리 (ids 배열)  
+- priority: 우선순위 변경 (ids 배열, newPriority: 높음|중간|낮음)
+- none: 일반 대화
+
+{"action":"...","ids":[0,1,...],"newPriority":"...","reply":"사용자에게 할 말 (한국어, 짧게)"}`;
+      try {
+        const r = await window.claude.complete(prompt);
+        const m = r.match(/\{[\s\S]*?\}/);
+        if (m) {
+          const cmd = JSON.parse(m[0]);
+          const targets = allItems.filter(i=>!i.done);
+          if (cmd.action === 'delete' && cmd.ids?.length) {
+            const toDelete = cmd.ids.map(i=>targets[i]?.id).filter(Boolean);
+            onCommand({ type:'delete', ids: toDelete });
+          } else if (cmd.action === 'complete' && cmd.ids?.length) {
+            const toComplete = cmd.ids.map(i=>targets[i]?.id).filter(Boolean);
+            onCommand({ type:'complete', ids: toComplete });
+          } else if (cmd.action === 'priority' && cmd.ids?.length) {
+            const toUpdate = cmd.ids.map(i=>targets[i]?.id).filter(Boolean);
+            onCommand({ type:'priority', ids: toUpdate, newPriority: cmd.newPriority });
+          }
+          setMsgs(p=>[...p,{role:'ai',text: cmd.reply||'처리했어요!'}]);
+          setLoading(false);
+          return;
+        }
+      } catch {}
+    }
+
+    // Normal conversation
+    const history = newMsgs.map(m => `${m.role==='user'?'사용자':'AI'}: ${m.text}`).join('\n');
+    const prompt = `${USER_CONTEXT}
+당신은 안두현님의 생각 정리를 도와주는 친근한 AI입니다. 한국어로 짧고 자연스럽게 대화하며 생각을 끌어내세요.\n\n대화:\n${history}\n\nAI:`;
+    try {
+      const reply = await window.claude.complete(prompt);
+      setMsgs(p=>[...p,{role:'ai',text:reply}]);
+    } catch {
+      setMsgs(p=>[...p,{role:'ai',text:'잠깐 오류가 났어요. 다시 말해봐요.'}]);
+    }
+    setLoading(false);
+  };
+
+  const extractTodos = async () => {
+    setLoading(true);
+    const conversation = msgs.filter(m=>m.role==='user').map(m=>m.text).join('\n');
+    const prompt = `${USER_CONTEXT}
+다음 대화에서 할 일이나 메모로 만들 수 있는 항목들을 추출하세요.
+대화: "${conversation}"
+JSON 배열만 출력:
+[{"text":"...","space":"학원명 또는 개인/아주 등","category":"세부분류","priority":"높음|중간|낮음"}]`;
+    try {
+      const r = await window.claude.complete(prompt);
+      const m = r.match(/\[[\s\S]*?\]/);
+      if (m) {
+        const items = JSON.parse(m[0]);
+        setExtracted(items);
+      }
+    } catch {}
+    setLoading(false);
+  };
+
+  const confirmAdd = () => {
+    if (!extracted) return;
+    onAddItems(extracted);
+    setExtracted(null);
+    const summary = extracted.map(it=>it.text).join(', ');
+    const savedMsg = { role:'ai', text:`좋아요! ${extracted.length}개 항목을 할 일 목록에 추가했어요 ✓` };
+    setMsgs(p => [...p, savedMsg]);
+    // Save this conversation to log
+    onSaveChatLog([...msgs, savedMsg], extracted.length);
+  };
+
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+
+      {/* ── History list view ── */}
+      {view==='history' && (
+        <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+          <div style={{display:'flex',alignItems:'center',padding:'8px 18px 12px',flexShrink:0,borderBottom:'1px solid var(--border)'}}>
+            <button onClick={()=>setView('chat')} style={{background:'none',border:'none',cursor:'pointer',color:'var(--text2)',fontSize:20,padding:'0 8px 0 0'}}>‹</button>
+            <span style={{fontSize:14,fontWeight:700,flex:1}}>대화 기록</span>
+            {chatLog.length>0 && <button onClick={()=>onSaveChatLog([],'clear')} style={{fontSize:10,color:'var(--text3)',background:'none',border:'1px solid var(--border)',borderRadius:6,padding:'3px 10px',cursor:'pointer',fontFamily:'inherit'}}>전체 삭제</button>}
+          </div>
+          {chatLog.length===0 ? (
+            <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'var(--text3)',gap:8}}>
+              <div style={{fontSize:13}}>저장된 대화가 없어요</div>
+              <div style={{fontSize:11}}>대화에서 할 일을 추출하면 기록됩니다</div>
+            </div>
+          ) : (
+            <div style={{flex:1,overflowY:'auto',padding:'10px 18px 18px',display:'flex',flexDirection:'column',gap:8}}>
+              {[...chatLog].reverse().map((log,i)=>(
+                <button key={i} onClick={()=>{setDetailLog(log);setView('detail');}} style={{
+                  background:'var(--s1)',border:'1px solid var(--border)',borderRadius:12,
+                  padding:'12px 14px',textAlign:'left',cursor:'pointer',fontFamily:'inherit',
+                  display:'flex',flexDirection:'column',gap:6,transition:'border-color 0.15s',
+                }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor='var(--border2)'}
+                onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
+                >
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:11,color:'var(--text3)'}}>
+                      {new Date(log.savedAt).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+                    </span>
+                    {log.itemCount>0 && <span style={{fontSize:10,color:'var(--accent)',background:'var(--s2)',padding:'2px 8px',borderRadius:4}}>+{log.itemCount}개 추가</span>}
+                  </div>
+                  {/* Summary: first 2 user messages */}
+                  {log.msgs.filter(m=>m.role==='user').slice(0,2).map((m,j)=>(
+                    <div key={j} style={{fontSize:12.5,color:'var(--text2)',lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.text}</div>
+                  ))}
+                  <div style={{fontSize:10,color:'var(--text3)'}}>{log.msgs.length}개 메시지 ›</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Detail conversation view ── */}
+      {view==='detail' && detailLog && (
+        <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+          <div style={{display:'flex',alignItems:'center',padding:'8px 18px 12px',flexShrink:0,borderBottom:'1px solid var(--border)'}}>
+            <button onClick={()=>setView('history')} style={{background:'none',border:'none',cursor:'pointer',color:'var(--text2)',fontSize:20,padding:'0 8px 0 0'}}>‹</button>
+            <span style={{fontSize:13,color:'var(--text3)',flex:1}}>
+              {new Date(detailLog.savedAt).toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+            </span>
+          </div>
+          <div style={{flex:1,overflowY:'auto',padding:'8px 18px',display:'flex',flexDirection:'column',gap:8}}>
+            {detailLog.msgs.map((m,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:m.role==='user'?'flex-end':'flex-start'}}>
+                <div style={{
+                  maxWidth:'80%',padding:'10px 14px',
+                  borderRadius:m.role==='user'?'14px 14px 4px 14px':'14px 14px 14px 4px',
+                  background:m.role==='user'?'var(--accent)':'var(--s2)',
+                  color:m.role==='user'?'#0c0c0b':'var(--text)',
+                  fontSize:13.5,lineHeight:1.6,
+                  border:m.role==='ai'?'1px solid var(--border2)':'none',
+                }}>{m.text}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Chat view ── */}
+      {view==='chat' && (
+        <>
+          {/* Messages */}
+          <div style={{flex:1,overflowY:'auto',padding:'8px 18px',display:'flex',flexDirection:'column',gap:10}}>
+            {msgs.map((m,i)=>(
+              <div key={i} style={{display:'flex',justifyContent:m.role==='user'?'flex-end':'flex-start',animation:'slideUp 0.2s ease'}}>
+                <div style={{
+                  maxWidth:'80%',padding:'10px 14px',
+                  borderRadius:m.role==='user'?'14px 14px 4px 14px':'14px 14px 14px 4px',
+                  background:m.role==='user'?'var(--accent)':'var(--s2)',
+                  color:m.role==='user'?'#0c0c0b':'var(--text)',
+                  fontSize:14,lineHeight:1.6,
+                  border:m.role==='ai'?'1px solid var(--border2)':'none',
+                }}>{m.text}</div>
+              </div>
+            ))}
+            {loading && (
+              <div style={{display:'flex',gap:6,alignItems:'center',padding:'4px 0'}}>
+                <Spin s={12}/><span style={{fontSize:12,color:'var(--text3)'}}>생각 중...</span>
+              </div>
+            )}
+            {extracted && (
+              <div style={{background:'var(--s2)',border:'1px solid var(--border2)',borderRadius:14,padding:'14px 16px',animation:'slideUp 0.2s ease'}}>
+                <div style={{fontSize:12,color:'var(--text3)',marginBottom:10,letterSpacing:0.5}}>이런 항목들을 추가할까요?</div>
+                {extracted.map((it,i)=>{
+                  const sc = spaceColor(it.space);
+                  return (
+                    <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:8}}>
+                      <span style={{width:6,height:6,borderRadius:'50%',background:sc.dot,flexShrink:0,marginTop:5}}/>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,color:'var(--text)',lineHeight:1.4}}>{it.text}</div>
+                        <div style={{fontSize:10,color:sc.label,marginTop:2}}>{it.space} · {it.category}</div>
+                      </div>
+                      <PChip p={it.priority}/>
+                    </div>
+                  );
+                })}
+                <div style={{display:'flex',gap:8,marginTop:12}}>
+                  <button onClick={()=>setExtracted(null)} style={{flex:1,padding:'9px',borderRadius:9,border:'1px solid var(--border2)',background:'transparent',color:'var(--text3)',fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>취소</button>
+                  <button onClick={confirmAdd} style={{flex:2,padding:'9px',borderRadius:9,border:'none',background:'var(--accent)',color:'#0c0c0b',fontSize:13,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>추가하기 ({extracted.length}개)</button>
+                </div>
+              </div>
+            )}
+            <div ref={bottomRef}/>
+          </div>
+
+          {/* Action buttons row */}
+          <div style={{padding:'0 18px 8px',display:'flex',gap:8,flexShrink:0}}>
+            {msgs.filter(m=>m.role==='user').length>=2 && !extracted && (
+              <button onClick={extractTodos} disabled={loading} style={{
+                flex:1,padding:'9px',borderRadius:10,border:'1px solid var(--border2)',
+                background:'var(--s2)',color:'var(--text2)',fontSize:12,cursor:'pointer',fontFamily:'inherit',
+                display:'flex',alignItems:'center',justifyContent:'center',gap:6,
+              }}>
+                {loading?<><Spin s={12}/> 추출 중...</>:'할 일 추출하기'}
+              </button>
+            )}
+            <button onClick={()=>setView('history')} style={{
+              padding:'9px 14px',borderRadius:10,border:'1px solid var(--border)',
+              background:'transparent',color:'var(--text3)',fontSize:12,cursor:'pointer',fontFamily:'inherit',
+              display:'flex',alignItems:'center',gap:5,whiteSpace:'nowrap',
+            }}>
+              기록 {chatLog.length>0?`(${chatLog.length})`:''}
+            </button>
+          </div>
+
+          {/* Input */}
+          <div style={{flexShrink:0,borderTop:'1px solid var(--border)',padding:'10px 18px',background:'var(--s1)',display:'flex',gap:10,alignItems:'flex-end'}}>
+            <textarea
+              ref={ta}
+              value={input}
+              onChange={e=>setInput(e.target.value)}
+              onCompositionStart={()=>{ composing.current=true; }}
+              onCompositionEnd={()=>{ composing.current=false; }}
+              onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey) e.preventDefault(); }}
+              onKeyUp={e=>{ if(e.key==='Enter'&&!e.shiftKey&&!composing.current) sendMsg(); }}
+              placeholder="자유롭게 얘기해봐요..."
+              rows={2}
+              style={{
+                flex:1,background:'var(--s2)',border:'1px solid var(--border2)',
+                borderRadius:12,padding:'10px 13px',
+                fontSize:14,fontFamily:'inherit',lineHeight:1.6,
+                color:'var(--text)',resize:'none',outline:'none',
+                caretColor:'var(--accent)',
+              }}
+            />
+            <button onClick={sendMsg} disabled={!input.trim()||loading} style={{
+              width:40,height:40,borderRadius:10,border:'none',flexShrink:0,
+              background:input.trim()&&!loading?'var(--accent)':'var(--border2)',
+              display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',
+              transition:'background 0.2s',
+            }}>
+              {loading?<Spin s={14}/>:<Icon n="send" s={15} c={input.trim()&&!loading?'#0c0c0b':'var(--text3)'}/>}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+// ── Korean Calendar Utilities ──────────────────────────────────────────────────
+
+// Fixed public holidays (MM-DD)
+const KR_FIXED_HOLIDAYS = {
+  '01-01':'신정','03-01':'삼일절','05-01':'노동절','05-05':'어린이날',
+  '06-06':'현충일','08-15':'광복절','10-03':'개천절',
+  '10-09':'한글날','12-25':'성탄절',
+};
+
+// Lunar-based holidays pre-computed per year
+const KR_LUNAR_HOLIDAYS = {
+  2024:{
+    '02-09':'설연휴','02-10':'설날','02-11':'설연휴',
+    '05-15':'부처님오신날',
+    '09-16':'추석연휴','09-17':'추석','09-18':'추석연휴',
+  },
+  2025:{
+    '01-28':'설연휴','01-29':'설날','01-30':'설연휴',
+    '05-01':'노동절','05-05':'부처님오신날',
+    '10-05':'추석연휴','10-06':'추석','10-07':'추석연휴',
+  },
+  2026:{
+    '02-16':'설연휴','02-17':'설날','02-18':'설연휴',
+    '05-01':'노동절','05-24':'부처님오신날','05-25':'대체휴일',
+    '09-24':'추석연휴','09-25':'추석','09-26':'추석연휴',
+  },
+  2027:{
+    '02-05':'설연휴','02-06':'설날','02-07':'설연휴',
+    '05-13':'부처님오신날',
+    '09-14':'추석연휴','09-15':'추석','09-16':'추석연휴',
+  },
+};
+
+function isHoliday(year, month1, day) {
+  // month1 is 1-indexed
+  const mmdd = String(month1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  return !!(KR_FIXED_HOLIDAYS[mmdd] || (KR_LUNAR_HOLIDAYS[year]||{})[mmdd]);
+}
+
+function getHolidayName(year, month1, day) {
+  const mmdd = String(month1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  return KR_FIXED_HOLIDAYS[mmdd] || (KR_LUNAR_HOLIDAYS[year]||{})[mmdd] || null;
+}
+
+// Lunar date using reference point + mean synodic month
+// Reference: Jan 29, 2025 = Lunar 1/1 (Eulsa Year)
+const LUNAR_REF = new Date(2025, 0, 29);
+const SYNODIC   = 29.530588853;
+const LUNAR_MONTH_NAMES = ['정월','이월','삼월','사월','오월','유월','칠월','팔월','구월','시월','동짓달','섣달'];
+
+function getLunarDate(year, month, day) {
+  const date = new Date(year, month-1, day);
+  const diff  = (date - LUNAR_REF) / 86400000;
+  const totalMonths = diff / SYNODIC;
+  const mIdx  = Math.floor(totalMonths);
+  const dFrac = totalMonths - mIdx;
+  const lunarDay   = Math.round(dFrac * SYNODIC) + 1;
+  const lunarMonth = ((mIdx % 12) + 12) % 12 + 1;
+  return { month: lunarMonth, day: Math.max(1, Math.min(30, lunarDay)) };
+}
+
+// ── Calendar Screen ────────────────────────────────────────────────────────────
+const CalendarScreen = ({ items, onCheck }) => {
+  const now = new Date();
+  const [year,  setYear]  = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth());
+  const [expandDay, setExpandDay] = useState(null);
+
+  const firstDay    = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const monthNames  = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const dayNames    = ['일','월','화','수','목','금','토'];
+  const today       = now.getDate();
+  const isThisMonth = now.getFullYear()===year && now.getMonth()===month;
+
+  // items by date — dueDate 우선, 없으면 createdAt
+  const byDate = {};
+  items.forEach(item => {
+    let d;
+    if (item.dueDate) {
+      const [y,m,dd] = item.dueDate.split('-').map(Number);
+      d = new Date(y, m-1, dd);
+    } else {
+      d = new Date(item.createdAt);
+    }
+    if (d.getFullYear()===year && d.getMonth()===month) {
+      const k = d.getDate();
+      if (!byDate[k]) byDate[k] = [];
+      byDate[k].push(item);
+    }
+  });
+
+  const cells = [];
+  for (let i=0;i<firstDay;i++) cells.push(null);
+  for (let d=1;d<=daysInMonth;d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const expandItems = expandDay ? (byDate[expandDay]||[]) : [];
+
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',background:'#fff',color:'#1a1a18'}}>
+      {/* Month nav */}
+      <div style={{display:'flex',alignItems:'center',padding:'8px 16px 8px',gap:8,flexShrink:0,borderBottom:'1px solid #eee'}}>
+        <button onClick={()=>{ if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1); setExpandDay(null); }}
+          style={{background:'none',border:'none',cursor:'pointer',color:'#555',fontSize:20,padding:'2px 8px'}}>‹</button>
+        <span style={{flex:1,textAlign:'center',fontSize:14,fontWeight:700,color:'#111'}}>{year}년 {monthNames[month]}</span>
+        <button onClick={()=>{ if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1); setExpandDay(null); }}
+          style={{background:'none',border:'none',cursor:'pointer',color:'#555',fontSize:20,padding:'2px 8px'}}>›</button>
+      </div>
+
+      {/* Day name header */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',flexShrink:0,borderBottom:'1px solid #eee'}}>
+        {dayNames.map((d,i)=>(
+          <div key={d} style={{
+            textAlign:'center',fontSize:10,fontWeight:600,letterSpacing:0.5,
+            padding:'5px 0',
+            color: i===0?'#e33':i===6?'#36a':'#888',
+          }}>{d}</div>
+        ))}      </div>
+
+      {/* Grid */}
+      <div style={{flex:1,overflow:'hidden'}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gridTemplateRows:`repeat(${Math.ceil(cells.length/7)}, 1fr)`,height:'100%',borderLeft:'1px solid #eee'}}>
+          {cells.map((day,i)=>{
+            if (!day) return <div key={i} style={{borderRight:'1px solid #eee',borderBottom:'1px solid #eee',background:'#fafafa'}}/>;
+            const dayItems = byDate[day]||[];
+            const isToday  = isThisMonth && day===today;
+            const colIdx   = i % 7;
+            const isHol    = isHoliday(year, month+1, day);
+            const holName  = getHolidayName(year, month+1, day);
+            const isSun    = colIdx === 0;
+            const isSat    = colIdx === 6;
+            const numColor = isHol||isSun ? '#e33' : isSat ? '#36a' : '#333';
+            const lunar    = getLunarDate(year, month+1, day);
+            const SHOW = 2;
+            const overflow = dayItems.length > SHOW;
+            return (
+              <div key={day}
+                onClick={()=>dayItems.length>0 && setExpandDay(expandDay===day?null:day)}
+                style={{
+                  borderRight:'1px solid #eee',borderBottom:'1px solid #eee',
+                  padding:'4px 5px',display:'flex',flexDirection:'column',gap:1,
+                  background: isToday ? '#fffbf0' : isHol ? '#fff5f5' : '#fff',
+                  cursor: dayItems.length>0?'pointer':'default',
+                  overflow:'hidden',
+                }}
+              >
+                {/* Date + lunar row */}
+                <div style={{display:'flex',alignItems:'baseline',gap:3,marginBottom:1}}>
+                  <div style={{
+                    fontSize:11,fontWeight:isToday?700:500,color:numColor,
+                    lineHeight:1,flexShrink:0,
+                    ...(isToday ? {
+                      background:'#1a1a18',color:'#fff',width:17,height:17,
+                      borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',
+                      fontSize:10,fontWeight:700,
+                    } : {}),
+                  }}>{day}</div>
+                  <div style={{fontSize:8.5,color:'#888',opacity:0.55,lineHeight:1,overflow:'hidden',whiteSpace:'nowrap'}}>
+                    {lunar.day===1 ? LUNAR_MONTH_NAMES[lunar.month-1] : lunar.day}
+                  </div>
+                </div>
+
+                {/* Items */}
+                {holName && (
+                  <div style={{fontSize:8,color:'#e33',lineHeight:1.2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:1}}>{holName}</div>
+                )}
+                {dayItems.slice(0,SHOW).map((item,j)=>{
+                  const sc = spaceColor(item.space||'기타');
+                  return (
+                    <div key={j} style={{display:'flex',alignItems:'flex-start',gap:3,minWidth:0}}>
+                      <div onClick={e=>{e.stopPropagation();onCheck(item.id);}} style={{
+                        width:9,height:9,borderRadius:2,flexShrink:0,marginTop:1,
+                        border:`1.2px solid ${item.done?'#aaa':sc.dot}`,
+                        background:item.done?'#aaa':'transparent',cursor:'pointer',
+                      }}/>
+                      <span style={{
+                        fontSize:9,lineHeight:1.3,color:item.done?'#aaa':'#333',
+                        overflow:'hidden',display:'-webkit-box',WebkitLineClamp:1,
+                        WebkitBoxOrient:'vertical',textDecoration:item.done?'line-through':'none',
+                        flex:1,minWidth:0,
+                      }}>{item.text}</span>
+                    </div>
+                  );
+                })}
+
+                {/* Overflow dots */}
+                {overflow && (
+                  <div style={{fontSize:9,color:'#aaa',letterSpacing:1}}>···</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Expand modal */}
+      {expandDay && (
+        <>
+          <div onClick={()=>setExpandDay(null)}
+            style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.3)',zIndex:50,animation:'fadeIn 0.15s'}}/>
+          <div style={{
+            position:'fixed',bottom:0,left:0,right:0,zIndex:51,
+            background:'#fff',borderRadius:'18px 18px 0 0',
+            padding:'16px 20px',paddingBottom:'calc(16px + var(--safe-b))',
+            maxHeight:'60vh',display:'flex',flexDirection:'column',
+            animation:'slideUp 0.22s ease',boxShadow:'0 -4px 24px rgba(0,0,0,0.12)',
+          }}>
+            <div style={{display:'flex',alignItems:'center',marginBottom:12}}>
+              <div style={{fontSize:14,fontWeight:700,color:'#111',flex:1}}>
+                {month+1}월 {expandDay}일 · {expandItems.length}개
+              </div>
+              <button onClick={()=>setExpandDay(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:20,color:'#999',lineHeight:1}}>×</button>
+            </div>
+            <div style={{overflowY:'auto',flex:1,display:'flex',flexDirection:'column',gap:6}}>
+              {expandItems.map((item,i)=>{
+                const sc = spaceColor(item.space||'기타');
+                return (
+                  <div key={i} style={{
+                    display:'flex',gap:10,alignItems:'flex-start',
+                    padding:'10px 12px',borderRadius:10,
+                    background:'#f8f8f6',border:'1px solid #eee',
+                  }}>
+                    <div onClick={()=>onCheck(item.id)} style={{
+                      width:16,height:16,borderRadius:4,flexShrink:0,marginTop:1,
+                      border:`1.5px solid ${item.done?'#aaa':sc.dot}`,
+                      background:item.done?'#aaa':'transparent',cursor:'pointer',
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                    }}>
+                      {item.done && <span style={{color:'#fff',fontSize:10,lineHeight:1}}>✓</span>}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13.5,lineHeight:1.5,color:item.done?'#aaa':'#1a1a18',textDecoration:item.done?'line-through':'none',wordBreak:'break-word'}}>{item.text}</div>
+                      <div style={{fontSize:10,marginTop:3,color:'#888'}}>{item.space} · {item.category}</div>
+                    </div>
+                    <PChip p={item.priority}/>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+const TABS = [
+  {id:'input', label:'입력', icon:'send'},
+  {id:'list',  label:'정리', icon:'grid'},
+  {id:'cal',   label:'달력', icon:'cal'},
+  {id:'map',   label:'맵',   icon:'map'},
+];
+
+function App() {
+  const [items,   setItems]   = useState(()=>load('brain3-items',[]));
+  const [chatLogs, setChatLogs] = useState(()=>load('brain3-chatlogs',[]));
+  const [tab,     setTab]     = useState('input');
+  const [loading, setLoading] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const exportData = () => {
+    const data = { items, chatLogs, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `머릿속-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('내보내기 완료');
+  };
+
+  const importData = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.items) setItems(data.items);
+        if (data.chatLogs) setChatLogs(data.chatLogs);
+        showToast('불러오기 완료');
+      } catch { showToast('파일을 읽을 수 없어요'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+  const [toast,   setToast]   = useState(null);
+
+  useEffect(()=>{ save('brain3-items',items); },[items]);
+  useEffect(()=>{ save('brain3-chatlogs',chatLogs); },[chatLogs]);
+
+  const showToast = m => { setToast(m); setTimeout(()=>setToast(null),2200); };
+
+  const handleAdd = useCallback(async text => {
+    setLoading(true);
+    const exSpaces = [...new Set(items.map(i=>i.space))];
+    const exCats   = {};
+    items.forEach(i=>{ if(!exCats[i.space]) exCats[i.space]=[]; if(!exCats[i.space].includes(i.category)) exCats[i.space].push(i.category); });
+    const r = await classify(text, exSpaces, exCats);
+    const item = {
+      id: Date.now()+Math.random(),
+      text: r.text||text,
+      space: r.space||'기타',
+      category: r.category||'기타',
+      priority: r.priority||'중간',
+      createdAt: r.date ? new Date(r.date+'T09:00:00').getTime() : Date.now(),
+      dueDate: r.date || null,
+      done: false,
+    };
+    setItems(p=>[item,...p]);
+    setLoading(false);
+    showToast(r.date ? `${item.space} · ${r.date}` : `${item.space} · ${item.category}`);
+  }, [items]);
+
+  const handleCheck  = id => { setItems(p=>p.map(i=>i.id===id?{...i,done:true,doneAt:Date.now()}:i)); showToast('완료'); };
+  const handleDelete = id => setItems(p=>p.filter(i=>i.id!==id));
+  const handleEdit   = (id, newText) => setItems(p=>p.map(i=>i.id===id?{...i,text:newText}:i));
+
+  const handleClearDone = () => setItems(p=>p.filter(i=>!i.done));
+  const handleSaveChatLog = (msgs, itemCount=0) => {
+    if (msgs === [] || itemCount === 'clear') { setChatLogs([]); return; }
+    setChatLogs(p=>[...p, { msgs, itemCount, savedAt: Date.now() }]);
+  };
+
+  const handleCommand = ({ type, ids, newPriority }) => {
+    if (type==='delete')   setItems(p=>p.filter(i=>!ids.includes(i.id)));
+    if (type==='complete') setItems(p=>p.map(i=>ids.includes(i.id)?{...i,done:true,doneAt:Date.now()}:i));
+    if (type==='priority') setItems(p=>p.map(i=>ids.includes(i.id)?{...i,priority:newPriority}:i));
+  };
+
+  const handleAddItems = async (rawItems) => {
+    const exSpaces = [...new Set(items.map(i=>i.space))];
+    const exCats   = {};
+    items.forEach(i=>{ if(!exCats[i.space]) exCats[i.space]=[]; if(!exCats[i.space].includes(i.category)) exCats[i.space].push(i.category); });
+    const newItems = rawItems.map(r => ({
+      id: Date.now()+Math.random(),
+      text: r.text, space: r.space||'기타',
+      category: r.category||'기타', priority: r.priority||'중간',
+      createdAt: Date.now(), done: false,
+    }));
+    setItems(p=>[...newItems,...p]);
+    showToast(`${newItems.length}개 추가됐어요`);
+  };
+
+  const activeCount = items.filter(i=>!i.done).length;
+  const recent = items.filter(i=>!i.done).slice(0,3);
+
+  return (
+    <div className="phone-frame" style={{display:'flex',flexDirection:'column',background:'var(--card)',paddingTop:'var(--safe-t)',position:'relative'}}>
+
+      {/* Header */}
+      <div style={{
+        padding:'22px 22px 12px',
+        display:'flex',alignItems:'flex-end',justifyContent:'space-between',
+        flexShrink:0,
+      }}>
+        <div>
+          <div style={{fontSize:11,color:'var(--text3)',letterSpacing:1.5,textTransform:'uppercase',marginBottom:5,fontWeight:600}}>{tab==='input'?'':'머릿속'}</div>
+          <div style={{fontSize:24,fontWeight:700,letterSpacing:-0.8,lineHeight:1.1,color:'var(--text)'}}>
+            {tab==='input'?'': tab==='list'?'정리된 생각': tab==='cal'?'달력':'마인드맵'}
+          </div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,paddingBottom:2}}>
+          {loading && (
+            <div style={{display:'flex',alignItems:'center',gap:6,color:'var(--text3)',fontSize:12}}>
+              <Spin s={12}/>
+            </div>
+          )}
+          <button onClick={()=>setMenuOpen(o=>!o)} style={{
+            width:34,height:34,borderRadius:'50%',border:'none',
+            background:'var(--s2)',cursor:'pointer',
+            display:'flex',alignItems:'center',justifyContent:'center',
+            color:'var(--text2)',
+          }} aria-label="메뉴">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="3" cy="8" r="1.5" fill="currentColor"/>
+              <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+              <circle cx="13" cy="8" r="1.5" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Settings menu */}
+      {menuOpen && (
+        <>
+          <div onClick={()=>setMenuOpen(false)} style={{position:'absolute',inset:0,zIndex:100}}/>
+          <div style={{
+            position:'absolute',top:64,right:18,zIndex:101,
+            background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,
+            boxShadow:'0 10px 40px rgba(0,0,0,0.12)',
+            minWidth:200,overflow:'hidden',animation:'fadeIn 0.15s ease',
+          }}>
+            <button onClick={()=>{ exportData(); setMenuOpen(false); }} style={{
+              width:'100%',padding:'14px 16px',background:'none',border:'none',
+              borderBottom:'1px solid var(--border)',cursor:'pointer',
+              display:'flex',alignItems:'center',gap:10,fontFamily:'inherit',
+              fontSize:13.5,color:'var(--text)',textAlign:'left',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3M3 13h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <span>데이터 내보내기</span>
+            </button>
+            <label style={{
+              display:'flex',alignItems:'center',gap:10,cursor:'pointer',
+              padding:'14px 16px',borderBottom:'1px solid var(--border)',
+              fontSize:13.5,color:'var(--text)',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 14V6M5 9l3-3 3 3M3 3h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <span>데이터 불러오기</span>
+              <input type="file" accept=".json" onChange={e=>{ importData(e); setMenuOpen(false); }} style={{display:'none'}}/>
+            </label>
+            <button onClick={()=>{
+              if(confirm('정말 모든 데이터를 지울까요? 이 작업은 되돌릴 수 없어요.')) {
+                setItems([]); setChatLogs([]); showToast('전체 삭제됨');
+              }
+              setMenuOpen(false);
+            }} style={{
+              width:'100%',padding:'14px 16px',background:'none',border:'none',cursor:'pointer',
+              display:'flex',alignItems:'center',gap:10,fontFamily:'inherit',
+              fontSize:13.5,color:'var(--high)',textAlign:'left',
+            }}>
+              <Icon n="trash" s={14} c="var(--high)"/>
+              <span>전체 데이터 삭제</span>
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Content */}
+      <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',marginTop:6}}>
+        {tab==='input'   && <InputScreen   onAdd={handleAdd} loading={loading}/>}
+        {tab==='list'    && <ListScreen    items={items} onCheck={handleCheck} onDelete={handleDelete} onClearDone={handleClearDone} onEdit={handleEdit}/>}
+        {tab==='cal'     && <CalendarScreen items={items} onCheck={handleCheck}/>}
+        {tab==='map'     && <MapScreen     items={items} onCheck={handleCheck} onDelete={handleDelete}/>}
+      </div>
+
+      {/* Bottom Nav */}
+      <div style={{
+        flexShrink:0,
+        background:'var(--card)',
+        borderTop:'1px solid var(--border)',
+        display:'flex',
+        paddingBottom:'var(--safe-b)',
+      }}>
+        {TABS.map(t=>{
+          const active = tab===t.id;
+          const badge  = t.id==='list' ? activeCount : 0;
+          return (
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{
+              flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4,
+              background:'none',border:'none',cursor:'pointer',padding:'11px 0 9px',
+              color: active ? 'var(--accent)' : 'var(--text3)',
+              position:'relative',transition:'color 0.2s',
+            }}>
+              <div style={{position:'relative'}}>
+                <Icon n={t.icon} s={20} c={active?'var(--accent)':'var(--text3)'}/>
+                {badge>0 && (
+                  <span style={{
+                    position:'absolute',top:-5,right:-7,
+                    background:'oklch(58% 0.18 20)',color:'white',
+                    borderRadius:50,fontSize:8,fontWeight:700,
+                    padding:'1px 4px',minWidth:14,textAlign:'center',
+                  }}>{badge}</span>
+                )}
+              </div>
+              <span style={{fontSize:10,fontWeight:active?600:400,letterSpacing:0.3}}>{t.label}</span>
+              {active && (
+                <span style={{
+                  position:'absolute',top:0,left:'50%',transform:'translateX(-50%)',
+                  width:24,height:1.5,borderRadius:2,background:'var(--accent)',
+                }}/>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position:'fixed',
+          bottom:`calc(60px + var(--safe-b) + 14px)`,
+          left:'50%',transform:'translateX(-50%)',
+          background:'var(--s2)',border:'1px solid var(--border2)',
+          color:'var(--text2)',padding:'9px 18px',borderRadius:8,
+          fontSize:12,letterSpacing:0.3,
+          boxShadow:'0 8px 32px rgba(0,0,0,0.5)',zIndex:200,
+          whiteSpace:'nowrap',animation:'fadeUp 0.2s ease',
+        }}>{toast}</div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
